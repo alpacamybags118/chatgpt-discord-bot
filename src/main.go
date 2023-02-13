@@ -48,7 +48,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	config := config.CreateConfig()
-	client := opengptclient.CreateNew(&config)
+	client := opengptclient.CreateNew(config)
 	req := opengptclient.OpenGptCompletionRequest{
 		Prompt:      m.Content,
 		Temperature: 1.0,
