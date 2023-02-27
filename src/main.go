@@ -1,9 +1,10 @@
 package main
 
 import (
+	"chatgpt-discord-bot/src/commands"
 	"chatgpt-discord-bot/src/config"
-	opengptclient "chatgpt-discord-bot/src/opengpt"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,26 +12,41 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func main() {
-	config := config.CreateConfig()
+var session *discordgo.Session
+var configSettings *config.Config
 
-	dg, err := discordgo.New("Bot " + config.DiscordToken)
+func init() {
+	var err error
+	configSettings = config.CreateConfig()
+	session, err = discordgo.New("Bot " + configSettings.DiscordToken)
 	if err != nil {
-		fmt.Println("error creating Discord session,", err)
+		log.Fatalf("Invalid bot parameters: %v", err)
+	}
+}
+
+func init() {
+	commandHandlers := commands.GetCommandHandlers()
+	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+			h(s, i)
+		}
+	})
+}
+
+func main() {
+	// In this example, we only care about receiving message events.
+	session.Identify.Intents = discordgo.IntentsGuildMessages
+
+	// Open a websocket connection to Discord and begin listening.
+	err := session.Open()
+	if err != nil {
+		fmt.Println("error opening connection,", err)
 		return
 	}
 
-	defer dg.Close()
-
-	dg.AddHandler(messageCreate)
-
-	// In this example, we only care about receiving message events.
-	dg.Identify.Intents = discordgo.IntentsGuildMessages
-
-	// Open a websocket connection to Discord and begin listening.
-	err = dg.Open()
+	err = commands.PushCommands(session, configSettings)
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		log.Panicf("Cannot create commands: %v", err)
 		return
 	}
 
@@ -40,28 +56,4 @@ func main() {
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
 
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-
-	config := config.CreateConfig()
-	client := opengptclient.CreateNew(config)
-	req := opengptclient.OpenGptCompletionRequest{
-		Prompt:      m.Content,
-		Temperature: 1.0,
-		Model:       "text-davinci-003",
-		Max_tokens:  200,
-	}
-
-	resp, err := client.SendCompletionRequest(req)
-
-	if err != nil {
-		fmt.Println(err)
-		s.ChannelMessageSend(m.ChannelID, "error occured")
-	}
-
-	s.ChannelMessageSend(m.ChannelID, resp.Choices[0].Text)
 }
