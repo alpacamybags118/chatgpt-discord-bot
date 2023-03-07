@@ -1,8 +1,8 @@
 package commands
 
 import (
+	chathandler "chatgpt-discord-bot/src/chat"
 	"chatgpt-discord-bot/src/config"
-	"chatgpt-discord-bot/src/handlers"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -23,13 +23,13 @@ func PushCommands(session *discordgo.Session, config *config.Config) error {
 func getCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
-			Name:        "ask-a-question",
-			Description: "Ask OpenAI a question!",
+			Name:        "start-chat",
+			Description: "Start a chat with ChatGPT",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "question",
-					Description: "The question you want to ask",
+					Name:        "prompt",
+					Description: "The initial prompt to begin the chat",
 					Required:    true,
 				},
 			},
@@ -37,10 +37,10 @@ func getCommands() []*discordgo.ApplicationCommand {
 	}
 }
 
-func GetCommandHandlers() map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	return map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"ask-a-question": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			handlers.HandleQuestion(s, i)
+func GetCommandHandlers() map[string]func(input chathandler.CommandHandlerInput) {
+	return map[string]func(input chathandler.CommandHandlerInput){
+		"start-chat": func(input chathandler.CommandHandlerInput) {
+			chathandler.StartChat(input)
 		},
 	}
 }

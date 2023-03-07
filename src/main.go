@@ -1,6 +1,7 @@
 package main
 
 import (
+	chathandler "chatgpt-discord-bot/src/chat"
 	"chatgpt-discord-bot/src/commands"
 	"chatgpt-discord-bot/src/config"
 	"fmt"
@@ -27,8 +28,14 @@ func init() {
 func init() {
 	commandHandlers := commands.GetCommandHandlers()
 	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
+		input := chathandler.CommandHandlerInput{
+			Interaction: i,
+			Session:     s,
+			Config:      configSettings,
+		}
+
+		if h, ok := commandHandlers[input.Interaction.ApplicationCommandData().Name]; ok {
+			h(input)
 		}
 	})
 }
