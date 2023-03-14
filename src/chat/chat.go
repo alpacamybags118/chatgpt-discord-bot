@@ -78,6 +78,7 @@ func ReplyInChat(input ReplyChatInput) error {
 	sort.Slice(threadMessages, func(i, j int) bool {
 		return threadMessages[i].ID < threadMessages[j].ID
 	})
+
 	for _, message := range threadMessages {
 		fmt.Println(message.Content)
 		var role string = "user"
