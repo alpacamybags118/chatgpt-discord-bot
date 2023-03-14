@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/bwmarrin/discordgo v0.27.0
-	github.com/rakyll/openai-go v1.0.1
+	github.com/rakyll/openai-go v1.0.5
 	github.com/stretchr/testify v1.8.2
 )
 

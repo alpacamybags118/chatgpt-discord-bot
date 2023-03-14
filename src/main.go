@@ -38,11 +38,34 @@ func init() {
 			h(input)
 		}
 	})
+
+	session.AddHandler(func(s *discordgo.Session, i *discordgo.MessageCreate) {
+		if i.Author.ID == s.State.User.ID {
+			return
+		}
+
+		ch, err := s.State.Channel(i.ChannelID)
+
+		if err != nil {
+			log.Printf("Error getting channel: %s", err)
+			return
+		}
+
+		if ch.IsThread() && ch.OwnerID == session.State.User.ID {
+			input := chathandler.ReplyChatInput{
+				Session: s,
+				Config:  configSettings,
+				Thread:  ch,
+			}
+
+			chathandler.ReplyInChat(input)
+		}
+	})
 }
 
 func main() {
-	// In this example, we only care about receiving message events.
-	session.Identify.Intents = discordgo.IntentsGuildMessages
+	session.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
+	session.Identify.Intents |= discordgo.IntentsGuildMessages
 
 	// Open a websocket connection to Discord and begin listening.
 	err := session.Open()
