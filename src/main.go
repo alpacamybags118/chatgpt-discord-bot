@@ -1,89 +1,116 @@
 package main
 
 import (
-	chathandler "chatgpt-discord-bot/src/chat"
-	"chatgpt-discord-bot/src/commands"
-	"chatgpt-discord-bot/src/config"
+	"chatgpt-discord-bot/src/chat"
+	config "chatgpt-discord-bot/src/config"
+	verify "chatgpt-discord-bot/src/verify"
+	"errors"
 	"fmt"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
+	"context"
+	"log"
+
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/bwmarrin/discordgo"
 )
 
 var session *discordgo.Session
-var configSettings *config.Config
+var appConfig *config.Config
 
 func init() {
 	var err error
-	configSettings = config.CreateConfig()
-	session, err = discordgo.New("Bot " + configSettings.DiscordToken)
+
+	appConfig = config.CreateConfig()
+	session, _ = discordgo.New(fmt.Sprintf("Bot %s", appConfig.DiscordToken))
+
 	if err != nil {
-		log.Fatalf("Invalid bot parameters: %v", err)
+		log.Fatal(err.Error())
 	}
 }
 
-func init() {
-	commandHandlers := commands.GetCommandHandlers()
-	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		input := chathandler.CommandHandlerInput{
-			Interaction: i,
-			Session:     s,
-			Config:      configSettings,
+type DiscordInteractionRequest struct {
+	Headers DiscordInteractionHeaders `json:"headers"`
+	Body    string                    `json:"body"`
+}
+
+type DiscordInteractionHeaders struct {
+	Signature string `json:"X-Signature-Ed25519"`
+	Timestamp string `json:"X-Signature-Timestamp"`
+}
+
+func HandleRequest(ctx context.Context, request DiscordInteractionRequest) (discordgo.InteractionResponse, error) {
+	var interaction discordgo.Interaction
+
+	fmt.Println(request)
+
+	verifyInput := verify.VerifyInput{
+		Signature: request.Headers.Signature,
+		Body:      request.Body,
+		Timestamp: request.Headers.Timestamp,
+		Config:    appConfig,
+	}
+
+	if !verify.Verify(verifyInput) {
+		log.Fatal("Could not verify signature")
+
+		return discordgo.InteractionResponse{}, errors.New("Could not verify signature")
+	}
+
+	log.Println("unmarshalling body")
+	err := interaction.UnmarshalJSON([]byte(request.Body))
+
+	if err != nil {
+		log.Fatalf("Could not decode body: %s\n", err.Error())
+
+		return discordgo.InteractionResponse{}, err
+
+	}
+
+	if interaction.Type == discordgo.InteractionPing {
+		return discordgo.InteractionResponse{
+			Type: 1,
+		}, nil
+	}
+	var command discordgo.ApplicationCommandInteractionData = interaction.ApplicationCommandData()
+
+	if err != nil {
+		log.Fatalf("Could not decode body: %s\n", err.Error())
+
+		return discordgo.InteractionResponse{}, err
+
+	}
+
+	switch command.Name {
+	case "start-chat":
+		input := chat.StartChatInput{
+			Prompt:    command.Options[0].StringValue(),
+			ChannelID: interaction.ChannelID,
+			UserID:    interaction.Member.User.ID,
+			Session:   session,
+			Config:    appConfig,
 		}
 
-		if h, ok := commandHandlers[input.Interaction.ApplicationCommandData().Name]; ok {
-			h(input)
-		}
-	})
-
-	session.AddHandler(func(s *discordgo.Session, i *discordgo.MessageCreate) {
-		if i.Author.ID == s.State.User.ID {
-			return
-		}
-
-		ch, err := s.State.Channel(i.ChannelID)
+		err = chat.StartChat(input)
 
 		if err != nil {
-			log.Printf("Error getting channel: %s", err)
-			return
+			log.Fatalf(err.Error())
+
+			return discordgo.InteractionResponse{}, err
 		}
 
-		if ch.IsThread() && ch.OwnerID == session.State.User.ID {
-			input := chathandler.ReplyChatInput{
-				Session: s,
-				Config:  configSettings,
-				Thread:  ch,
-			}
+		log.Println("Returning response")
+		return discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Test",
+				TTS:     false,
+			},
+		}, nil
+	}
 
-			chathandler.ReplyInChat(input)
-		}
-	})
+	return discordgo.InteractionResponse{}, errors.New("Interaction not found")
 }
 
 func main() {
-	session.Identify.Intents = discordgo.IntentsAllWithoutPrivileged
-	session.Identify.Intents |= discordgo.IntentsGuildMessages
-
-	// Open a websocket connection to Discord and begin listening.
-	err := session.Open()
-	if err != nil {
-		fmt.Println("error opening connection,", err)
-		return
-	}
-
-	err = commands.PushCommands(session, configSettings)
-	if err != nil {
-		log.Panicf("Cannot create commands: %v", err)
-		return
-	}
-
-	// Wait here until CTRL-C or other term signal is received.
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sc
-
+	lambda.Start(HandleRequest)
 }

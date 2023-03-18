@@ -37,9 +37,9 @@ func getCommands() []*discordgo.ApplicationCommand {
 	}
 }
 
-func GetCommandHandlers() map[string]func(input chathandler.CommandHandlerInput) {
-	return map[string]func(input chathandler.CommandHandlerInput){
-		"start-chat": func(input chathandler.CommandHandlerInput) {
+func GetCommandHandlers() map[string]func(input chathandler.StartChatInput) {
+	return map[string]func(input chathandler.StartChatInput){
+		"start-chat": func(input chathandler.StartChatInput) {
 			chathandler.StartChat(input)
 		},
 	}

@@ -1,8 +1,9 @@
-package chathandler
+package chat
 
 import (
 	"chatgpt-discord-bot/src/config"
 	"fmt"
+	"log"
 	"sort"
 
 	"context"
@@ -12,10 +13,12 @@ import (
 	"github.com/rakyll/openai-go/chat"
 )
 
-type CommandHandlerInput struct {
-	Session     *discordgo.Session
-	Interaction *discordgo.InteractionCreate
-	Config      *config.Config
+type StartChatInput struct {
+	Prompt    string
+	Session   *discordgo.Session
+	ChannelID string
+	Config    *config.Config
+	UserID    string
 }
 
 type ReplyChatInput struct {
@@ -24,21 +27,23 @@ type ReplyChatInput struct {
 	Config  *config.Config
 }
 
-const GENERIC_REPLY string = "Starting Chat..."
+const GENERIC_REPLY string = "Chat started, reply in thread %s"
 const CHATGPT_MODEL string = "gpt-3.5-turbo"
 
-func StartChat(input CommandHandlerInput) error {
+func StartChat(input StartChatInput) error {
 	ctx := context.Background()
 
-	initialPrompt := input.Interaction.ApplicationCommandData().Options[0].StringValue()
-	thread, err := input.Session.ForumThreadStart(input.Interaction.ChannelID, initialPrompt, 60, initialPrompt)
+	log.Println("Starting thread")
+	initialPrompt := input.Prompt
+	thread, err := input.Session.ForumThreadStart(input.ChannelID, initialPrompt, 60, initialPrompt)
 
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
-	input.Session.ThreadMemberAdd(thread.ID, input.Interaction.Member.User.ID)
+	log.Println("Adding user to thread")
+	input.Session.ThreadMemberAdd(thread.ID, input.UserID)
 
 	session := openai.NewSession(input.Config.OpenAIApiKey)
 	client := chat.NewClient(session, CHATGPT_MODEL)
@@ -47,13 +52,14 @@ func StartChat(input CommandHandlerInput) error {
 		Messages: []*chat.Message{
 			{
 				Role:    "user",
-				Content: input.Interaction.ApplicationCommandData().Options[0].StringValue(),
+				Content: input.Prompt,
 			},
 		},
 		N:         1,
 		MaxTokens: 200,
 	}
 
+	log.Println("Sending request to OpenAI")
 	resp, err := client.CreateCompletion(ctx, &params)
 
 	if err != nil {
@@ -62,7 +68,8 @@ func StartChat(input CommandHandlerInput) error {
 	}
 
 	message := resp.Choices[0].Message.Content
-	fmt.Println(thread.Messages)
+
+	log.Println("Sending OpenAI Response")
 	input.Session.ChannelMessageSend(thread.ID, message)
 
 	return nil
