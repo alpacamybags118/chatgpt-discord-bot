@@ -21,7 +21,7 @@ func init() {
 	var err error
 
 	appConfig = config.CreateConfig()
-	session, _ = discordgo.New(fmt.Sprintf("Bot %s", appConfig.DiscordToken))
+	session, err = discordgo.New(fmt.Sprintf("Bot %s", appConfig.DiscordToken))
 
 	if err != nil {
 		log.Fatal(err.Error())
@@ -82,6 +82,14 @@ func HandleRequest(ctx context.Context, request DiscordInteractionRequest) (disc
 
 	switch command.Name {
 	case "start-chat":
+		session.InteractionRespond(&interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Generating chat",
+				TTS:     false,
+			},
+		})
+
 		input := chat.StartChatInput{
 			Prompt:    command.Options[0].StringValue(),
 			ChannelID: interaction.ChannelID,
@@ -102,7 +110,44 @@ func HandleRequest(ctx context.Context, request DiscordInteractionRequest) (disc
 		return discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "Test",
+				Content: "Response generated, see created thread",
+				TTS:     false,
+			},
+		}, nil
+	case "reply":
+		session.InteractionRespond(&interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Generating reply",
+				TTS:     false,
+			},
+		})
+		input := chat.ReplyChatInput{
+			Prompt:    command.Options[0].StringValue(),
+			ChannelID: interaction.ChannelID,
+			Session:   session,
+			Config:    appConfig,
+		}
+
+		err = chat.ReplyInChat(input)
+
+		if err != nil {
+			log.Fatalf(err.Error())
+
+			return discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: err.Error(),
+					TTS:     false,
+				},
+			}, err
+		}
+
+		log.Println("Returning response")
+		return discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Reply generated",
 				TTS:     false,
 			},
 		}, nil

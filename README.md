@@ -1,6 +1,6 @@
 # OpenAI Discord Bot
 
-This bot integrates with OpenAI's API to provide features such as question completion and image generation
+This bot integrates with OpenAI's API to provide ChatGPT integration in Discord!
 
 ## Developing
 
