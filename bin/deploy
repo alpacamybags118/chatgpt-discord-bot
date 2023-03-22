@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+echo "######### Building Project #########"
+make build
+zip ./tmp/main.zip ./tmp/main
+
+echo "######### Deploying to AWS #########"
+aws lambda update-function-code --function-name arn:aws:lambda:us-east-2:521296429118:function:InfrastructureStack-discordbotfunction9F23AFA9-FxTy1fP4LDRL --zip-file fileb://./tmp/main.zip --no-cli-pager
+
+echo "######### Cleaning Up #########"
+rm -rf ./tmp

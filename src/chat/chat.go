@@ -29,9 +29,7 @@ type ReplyChatInput struct {
 	Config    *config.Config
 }
 
-const GENERIC_REPLY string = "Chat started, reply in thread %s"
 const CHATGPT_MODEL string = "gpt-3.5-turbo"
-const BOT_USER_ID string = "1068334708057981022"
 
 func StartChat(input StartChatInput) error {
 	ctx := context.Background()
@@ -115,7 +113,7 @@ func ReplyInChat(input ReplyChatInput) error {
 			continue
 		}
 
-		if message.Author.ID == BOT_USER_ID {
+		if message.Author.ID == input.Config.BotUserID {
 			role = "assistant"
 		}
 

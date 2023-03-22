@@ -2,7 +2,7 @@ import * as cdk from '@aws-cdk/core';
 import * as lambda from '@aws-cdk/aws-lambda';
 import * as apigatewayv2 from '@aws-cdk/aws-apigatewayv2';
 import * as integrations from '@aws-cdk/aws-apigatewayv2-integrations';
-import { Duration } from 'aws-cdk-lib';
+import { CfnOutput } from '@aws-cdk/core';
 
 
 
@@ -36,5 +36,8 @@ export class InfrastructureStack extends cdk.Stack {
       
     });
 
+    new CfnOutput(this, "lambda-arn", {
+      value: discordLambda.functionArn
+    })
   }
 }
