@@ -36,8 +36,14 @@ export class InfrastructureStack extends cdk.Stack {
       
     });
 
+    // output apigw url
+
+    new CfnOutput(this, "apigw-execution-url",{
+      value: apiGw.url || ''
+    })
     new CfnOutput(this, "lambda-arn", {
       value: discordLambda.functionArn
     })
+    
   }
 }
